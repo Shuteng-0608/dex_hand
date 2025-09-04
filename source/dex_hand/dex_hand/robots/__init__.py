@@ -1,0 +1,1 @@
+from .dexhand import MORPHOPALM5_CONFIG
