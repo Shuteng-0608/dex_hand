@@ -25,13 +25,13 @@ class DexHandEnvCfg(DirectRLEnvCfg):
     state_space = 0
 
     # simulation
-    sim: SimulationCfg = SimulationCfg(dt=1 / 120, render_interval=decimation)
+    sim: SimulationCfg = SimulationCfg(dt=1 / 240, render_interval=decimation)
 
     # robot(s)
     robot_cfg: ArticulationCfg = MORPHOPALM5_CONFIG.replace(prim_path="/World/envs/env_.*/Robot")
 
     # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=4.0, replicate_physics=True)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=10, env_spacing=4.0, replicate_physics=True)
 
     # joints
     active_joints: List[str] = ["left_crank_base_joint", "right_crank_base_joint"]
@@ -42,18 +42,18 @@ class DexHandEnvCfg(DirectRLEnvCfg):
     # Task Parameters
     # ====================
     # initial joint angle
-    initial_joint_angle : float = math.radians(34.0)  # -30 degrees
+    initial_joint_angle : float = 0.5834
     # target joint angle
-    target_joint_angle : float = math.radians(-30.0)  # 30 degrees
-    target_tolerance : float = math.radians(5.0)  # degrees
+    target_joint_angle : float = -30.0  
+    target_tolerance : float = 5.0  # degrees
     target_angle_range : Tuple[float, float] = (target_joint_angle - target_tolerance, target_joint_angle + target_tolerance)  # degrees
     # joint limits
     joint_limits: Dict[str, Tuple[float, float]] = {
-        "left_crank_base_joint": (-math.pi, math.pi),
-        "right_crank_base_joint": (-math.pi, math.pi),
-        "left_coupler_crank_joint": (-math.pi, math.pi),
+        "left_crank_base_joint": (-50.0, 50.0),
+        "right_crank_base_joint": (-50.0, 50.0),
+        "left_coupler_crank_joint": (-135.0, 135.0),
         # "right_coupler_crank_joint": (-math.pi, math.pi),
-        "coupler_joint": (-math.pi, math.pi) 
+        "coupler_joint": (-135.0, 135.0), 
     }
     
     action_scale: float = 1.0

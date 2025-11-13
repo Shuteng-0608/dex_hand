@@ -14,6 +14,8 @@ from isaaclab.assets import Articulation
 from isaaclab.envs import DirectRLEnv
 from isaaclab.sim.spawners.from_files import GroundPlaneCfg, spawn_ground_plane
 from isaaclab.utils.math import sample_uniform
+from pxr import UsdPhysics, Sdf, Gf, UsdGeom
+import omni.usd
 
 from .dex_hand_env_cfg import DexHandEnvCfg
 
@@ -35,19 +37,50 @@ class DexHandEnv(DirectRLEnv):
 
     def _setup_scene(self):
         self.robot = Articulation(self.cfg.robot_cfg)
+        # print(self.robot.is_fixed_base)  # 固定基座
         # add ground plane
         spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg())
+
         # clone and replicate
         self.scene.clone_environments(copy_from_source=False)
         # we need to explicitly filter collisions for CPU simulation
         if self.device == "cpu":
             self.scene.filter_collisions(global_prim_paths=[])
+        
         # add articulation to scene
         self.scene.articulations["robot"] = self.robot
+
         # add lights
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
 
+        # fix the base of the robot to the world
+        # self._create_fixed_joint()
+
+
+
+    # def _create_fixed_joint(self):
+    #     """为每个环境创建固定关节，将机器人底座固定到世界坐标系"""
+    #     context = omni.usd.get_context()
+        
+    #     # 从上下文获取 stage
+    #     stage = context.get_stage()
+    #     # env_prim_paths = self.scene.env_prim_paths
+    #     env_path = self.scene.env_prim_paths[0]
+        
+    #     # 获取机器人根链接路径（假设为"base_link"）
+    #     robot_prim_path = f"{env_path}/Robot"
+    #     root_link_path = f"{robot_prim_path}/base_link"  # 根据您的实际链接名称调整
+        
+    #     # 创建固定关节
+    #     constraint_path = f"{env_path}/fixed_base_joint"
+        
+    #     constraint_prim = stage.DefinePrim(constraint_path, "PhysicsFixedJoint")
+
+    #     constraint_prim.CreateRelationship("physics:body0").SetTargets(["/World/ground/GroundPlane"])
+    #     constraint_prim.CreateRelationship("physics:body1").SetTargets([root_link_path])
+
+    #     constraint_prim.CreateAttribute("physics:jointEnabled", Sdf.ValueTypeNames.Bool).Set(True)
         
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
@@ -164,13 +197,13 @@ def compute_rewards(
     
     # 定义关键角度
     bifurcation_angle = 0.0  # 0度平面
-    target_center = math.radians(-30.0)  # 目标中心角度 -30度
-    target_min = math.radians(-40.0)     # 目标区间下限
-    target_max = math.radians(-20.0)     # 目标区间上限
+    target_center = -30.0  # 目标中心角度 -30度
+    target_min = -40.0     # 目标区间下限
+    target_max = -20.0     # 目标区间上限
     
     # 定义穿越区域（0度平面附近的窄带）
-    crossing_band_min = math.radians(-5.0)
-    crossing_band_max = math.radians(5.0)
+    crossing_band_min = -5.0
+    crossing_band_max = 5.0
     in_crossing_band = (joint_angle >= crossing_band_min) & (joint_angle <= crossing_band_max)
     
     # 根据角度位置划分区域
@@ -189,7 +222,7 @@ def compute_rewards(
     # 2. 负角度区域：鼓励达到目标区间
     dist_to_center = torch.abs(joint_angle - target_center)
     target_reward[negative_region] = rew_scale_target_angle * (
-        1.0 - dist_to_center[negative_region] / (math.radians(20.0))
+        1.0 - dist_to_center[negative_region] / (20.0)
     )
     
     # 3. 目标区域内：确保有最小奖励
