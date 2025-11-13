@@ -31,7 +31,7 @@ class DexHandEnvCfg(DirectRLEnvCfg):
     robot_cfg: ArticulationCfg = MORPHOPALM5_CONFIG.replace(prim_path="/World/envs/env_.*/Robot")
 
     # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=10, env_spacing=4.0, replicate_physics=True)
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1024, env_spacing=4.0, replicate_physics=True)
 
     # joints
     active_joints: List[str] = ["left_crank_base_joint", "right_crank_base_joint"]
