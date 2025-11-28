@@ -18,14 +18,14 @@ import math
 class DexHandEnvCfg(DirectRLEnvCfg):
     # env
     decimation = 2 # 
-    episode_length_s = 5.0 # each episode lasts 5 seconds, maybe try 10s or longer later
+    episode_length_s = 10.0 # each episode lasts 5 seconds, maybe try 10s or longer later
     # - spaces definition
-    action_space = 2 # 2 actuators
-    observation_space = 5 # 2 positive joints position + 2 positive joints velocity + 1 target joint position
+    action_space = 2 # 2个主动关节
+    observation_space = 6 # 2个主动关节位置 + 2个主动关节速度 + 目标关节位置 + 目标关节速度
     state_space = 0
 
     # simulation
-    sim: SimulationCfg = SimulationCfg(dt=1 / 240, render_interval=decimation)
+    sim: SimulationCfg = SimulationCfg(dt=1 / 480, render_interval=decimation)
 
     # robot(s)
     robot_cfg: ArticulationCfg = MORPHOPALM5_CONFIG.replace(prim_path="/World/envs/env_.*/Robot")
@@ -41,19 +41,32 @@ class DexHandEnvCfg(DirectRLEnvCfg):
     # ====================
     # Task Parameters
     # ====================
-    # initial joint angle
-    initial_joint_angle : float = 0.5834
-    # target joint angle
-    target_joint_angle : float = -30.0  
-    target_tolerance : float = 5.0  # degrees
-    target_angle_range : Tuple[float, float] = (target_joint_angle - target_tolerance, target_joint_angle + target_tolerance)  # degrees
-    # joint limits
+
+    target_joint_angle: float = -30.0 * math.pi / 180.0
+    target_tolerance: float = 5.0 * math.pi / 180.0  
+    target_angle_range: Tuple[float, float] = (
+        target_joint_angle - target_tolerance,  
+        target_joint_angle + target_tolerance  
+    )
+
+    # 关节限制
     joint_limits: Dict[str, Tuple[float, float]] = {
-        "left_crank_base_joint": (-50.0, 50.0),
-        "right_crank_base_joint": (-50.0, 50.0),
-        "left_coupler_crank_joint": (-135.0, 135.0),
-        # "right_coupler_crank_joint": (-math.pi, math.pi),
-        "coupler_joint": (-135.0, 135.0), 
+        "left_crank_base_joint": (
+            -0.5 * math.pi, 
+            0.5 * math.pi  
+        ),
+        "right_crank_base_joint": (
+            -0.5 * math.pi,
+            0.5 * math.pi 
+        ),
+        "left_coupler_crank_joint": (
+            -0.5 * math.pi, 
+            0.5 * math.pi   
+        ),
+        "coupler_joint": (
+            -0.5 * math.pi, 
+            0.5 * math.pi
+        ), 
     }
     
     action_scale: float = 1.0
@@ -62,8 +75,8 @@ class DexHandEnvCfg(DirectRLEnvCfg):
     # Reward Coefficients
     # ====================
     rew_scale_target_angle: float = 5.0     # 目标角度奖励
-    rew_scale_milestone: float = 10.0       # 跨越180度奖励
+    rew_scale_milestone: float = 10.0       # 跨越分岔平面奖励
     rew_scale_energy: float = 0.01          # 能耗惩罚
-    rew_scale_crossing_speed: float = 0.5         # 快速穿越奖励
-    rew_scale_success: float = 50.0         # 成功奖励
+    rew_scale_crossing_speed: float = 0.5   # 快速穿越奖励
+    rew_scale_success: float = 100.0         # 成功奖励
    

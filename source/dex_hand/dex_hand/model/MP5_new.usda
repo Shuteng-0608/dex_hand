@@ -484,7 +484,7 @@ def Xform "MP5"
             float drive:angular:physics:damping = 0.001
             float drive:angular:physics:maxForce = 10000
             float drive:angular:physics:stiffness = 10
-            uniform token drive:angular:physics:type = "force"
+            uniform token drive:angular:physics:type = "acceleration"
             uniform token physics:axis = "Z"
             rel physics:body0 = </MP5/base_link>
             rel physics:body1 = </MP5/left_crank>
@@ -495,20 +495,20 @@ def Xform "MP5"
             point3f physics:localPos1 = (0, 0, 0)
             quatf physics:localRot0 = (0.5, 0, 0.8660254, 0)
             quatf physics:localRot1 = (0, 0, 1, 0)
-            float physics:lowerLimit = -40
-            float physics:upperLimit = 40
-            float physxJoint:maxJointVelocity = 5
+            float physics:lowerLimit = -inf
+            float physics:upperLimit = inf
+            float physxJoint:maxJointVelocity = 100
         }
 
         def PhysicsRevoluteJoint "left_coupler_crank_joint" (
-            apiSchemas = ["PhysxJointAPI", "PhysicsDriveAPI:angular"]
+            apiSchemas = ["PhysxJointAPI"]
         )
         {
-            float drive:angular:physics:damping = 0.001
-            float drive:angular:physics:maxForce = 10000
-            float drive:angular:physics:stiffness = 0
-            float drive:angular:physics:targetVelocity = 0
-            uniform token drive:angular:physics:type = "force"
+            # float drive:angular:physics:damping = 0.001
+            # float drive:angular:physics:maxForce = 10000
+            # float drive:angular:physics:stiffness = 0
+            # float drive:angular:physics:targetVelocity = 0
+            # uniform token drive:angular:physics:type = "acceleration"
             uniform token physics:axis = "Z"
             rel physics:body0 = </MP5/left_crank>
             rel physics:body1 = </MP5/left_coupler>
@@ -521,7 +521,7 @@ def Xform "MP5"
             quatf physics:localRot1 = (0, 0, 1, 0)
             float physics:lowerLimit = -inf
             float physics:upperLimit = inf
-            float physxJoint:maxJointVelocity = 10
+            float physxJoint:maxJointVelocity = 100
         }
 
         def PhysicsRevoluteJoint "right_crank_base_joint" (
@@ -531,7 +531,7 @@ def Xform "MP5"
             float drive:angular:physics:damping = 0.001
             float drive:angular:physics:maxForce = 10000
             float drive:angular:physics:stiffness = 0.029443292
-            uniform token drive:angular:physics:type = "force"
+            uniform token drive:angular:physics:type = "acceleration"
             uniform token physics:axis = "Z"
             rel physics:body0 = </MP5/base_link>
             rel physics:body1 = </MP5/right_crank>
@@ -542,20 +542,20 @@ def Xform "MP5"
             point3f physics:localPos1 = (0, 0, 0)
             quatf physics:localRot0 = (-1, 4.371139e-8, 1.9106855e-15, -4.371139e-8)
             quatf physics:localRot1 = (0, 0, 1, 0)
-            float physics:lowerLimit = -40
-            float physics:upperLimit = 40
-            float physxJoint:maxJointVelocity = 5
+            float physics:lowerLimit = -inf
+            float physics:upperLimit = inf
+            float physxJoint:maxJointVelocity = 100
         }
 
         def PhysicsRevoluteJoint "right_coupler_crank_joint" (
-            apiSchemas = ["PhysxJointAPI", "PhysicsDriveAPI:angular"]
+            apiSchemas = ["PhysxJointAPI"]
         )
         {
-            float drive:angular:physics:damping = 0.001
-            float drive:angular:physics:maxForce = 10000
-            float drive:angular:physics:stiffness = 0
-            float drive:angular:physics:targetVelocity = 0
-            uniform token drive:angular:physics:type = "force"
+            # float drive:angular:physics:damping = 0.001
+            # float drive:angular:physics:maxForce = 10000
+            # float drive:angular:physics:stiffness = 0
+            # float drive:angular:physics:targetVelocity = 0
+            # uniform token drive:angular:physics:type = "acceleration"
             uniform token physics:axis = "Z"
             rel physics:body0 = </MP5/right_crank>
             rel physics:body1 = </MP5/right_coupler>
@@ -569,18 +569,18 @@ def Xform "MP5"
             quatf physics:localRot1 = (1, 0, 0, 0)
             float physics:lowerLimit = -inf
             float physics:upperLimit = inf
-            float physxJoint:maxJointVelocity = 10
+            float physxJoint:maxJointVelocity = 100
         }
 
         def PhysicsRevoluteJoint "coupler_joint" (
-            apiSchemas = ["PhysxJointAPI", "PhysicsDriveAPI:angular"]
+            apiSchemas = ["PhysxJointAPI"]
         )
         {
-            float drive:angular:physics:damping = 0.001
-            float drive:angular:physics:stiffness = 0
-            float drive:angular:physics:maxForce = inf
-            float drive:angular:physics:targetVelocity = 0
-            uniform token drive:angular:physics:type = "force"
+            # float drive:angular:physics:damping = 0.001
+            # float drive:angular:physics:stiffness = 0
+            # float drive:angular:physics:maxForce = inf
+            # float drive:angular:physics:targetVelocity = 0
+            # uniform token drive:angular:physics:type = "acceleration"
             uniform token physics:axis = "Z"
             rel physics:body0 = </MP5/left_coupler>
             rel physics:body1 = </MP5/right_coupler>
@@ -592,7 +592,7 @@ def Xform "MP5"
             quatf physics:localRot1 = (6.123234e-17, 0.64278764, -3.935939e-17, -0.76604444)
             float physics:lowerLimit = -inf
             float physics:upperLimit = inf
-            float physxJoint:maxJointVelocity = 10
+            float physxJoint:maxJointVelocity = 100
         }
     }
 

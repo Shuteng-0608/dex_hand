@@ -94,12 +94,13 @@ class DexHandEnv(DirectRLEnv):
         )
 
     def _get_observations(self) -> dict:
-        # 观察值：2个主动关节位置 + 目标关节位置 + 2个主动关节速度
+        # 观察值：2个主动关节位置 + 2个主动关节速度 + 目标关节位置 + 目标关节速度
         obs = torch.cat(
             (
                 self.robot.data.joint_pos[:, self._active_joint_idx],  # 主动关节位置
                 self.robot.data.joint_pos[:, self._target_joint_idx],  # 目标关节位置
                 self.robot.data.joint_vel[:, self._active_joint_idx],  # 主动关节速度
+                self.robot.data.joint_vel[:, self._target_joint_idx],  # 目标关节速度
             ),
             dim=-1, # 沿列拼接
         )
@@ -107,33 +108,33 @@ class DexHandEnv(DirectRLEnv):
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
-        target_angle = self.robot.data.joint_pos[:, self._target_joint_idx].squeeze(-1)
-        target_vel = torch.abs(self.robot.data.joint_vel[:, self._target_joint_idx].squeeze(-1))
+
+        joint_angle = self.robot.data.joint_pos[:, self._target_joint_idx].squeeze(-1)
+        joint_vel = torch.abs(self.robot.data.joint_vel[:, self._target_joint_idx].squeeze(-1))
         
         
         # 动态计算奖励
-        
         rewards = compute_rewards(
             rew_scale_target_angle=self.cfg.rew_scale_target_angle,
             rew_scale_energy=self.cfg.rew_scale_energy,
             rew_scale_crossing_speed=self.cfg.rew_scale_crossing_speed,
-            joint_angle=target_angle,
-            joint_vel=target_vel,
+            joint_angle=joint_angle,
+            joint_vel=joint_vel,
             actions=self.actions,
         )
         
         # 检查是否首次越过分岔平面
-        just_crossed = (self.prev_target_angle > 0) & (target_angle <= 0)
+        just_crossed = (self.prev_target_angle > 0) & (joint_angle <= 0)
         self.crossed_threshold = self.crossed_threshold | just_crossed
         rewards += self.cfg.rew_scale_milestone * just_crossed.float()
         
-        # 检查是否达到目标范围
+        # # 检查是否达到目标范围
         target_min = self.cfg.target_angle_range[0]
         target_max = self.cfg.target_angle_range[1]
-        in_target_range = (target_angle >= target_min) & (target_angle <= target_max)
+        in_target_range = (joint_angle >= target_min) & (joint_angle <= target_max)
         rewards += self.cfg.rew_scale_success * in_target_range.float()
         
-        self.prev_target_angle = target_angle.clone()
+        self.prev_target_angle = joint_angle.clone()
         return rewards
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -141,10 +142,10 @@ class DexHandEnv(DirectRLEnv):
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         
         # 2. 成功：在目标范围内保持稳定
-        target_angle = self.robot.data.joint_pos[:, self._target_joint_idx].squeeze(-1)
+        joint_angle = self.robot.data.joint_pos[:, self._target_joint_idx].squeeze(-1)
         target_min = self.cfg.target_angle_range[0]
         target_max = self.cfg.target_angle_range[1]
-        in_target_range = (target_angle >= target_min) & (target_angle <= target_max)
+        in_target_range = (joint_angle >= target_min) & (joint_angle <= target_max)
         stable = (torch.abs(self.robot.data.joint_vel[:, self._target_joint_idx]) < 0.1).squeeze(-1)
         success = in_target_range & stable
         
@@ -184,7 +185,6 @@ class DexHandEnv(DirectRLEnv):
         )
 
 
-
 @torch.jit.script
 def compute_rewards(
     rew_scale_target_angle: float,
@@ -195,16 +195,18 @@ def compute_rewards(
     actions: torch.Tensor,
 ) -> torch.Tensor:
     
-    # 定义关键角度
-    bifurcation_angle = 0.0  # 0度平面
-    target_center = -30.0  # 目标中心角度 -30度
-    target_min = -40.0     # 目标区间下限
-    target_max = -20.0     # 目标区间上限
-    
-    # 定义穿越区域（0度平面附近的窄带）
-    crossing_band_min = -5.0
-    crossing_band_max = 5.0
+    # 定义分岔平面
+    bifurcation_angle = 0.0
+
+    # 定义穿越区域
+    crossing_band_min = -10.0 * torch.pi / 180.0
+    crossing_band_max = 10.0 * torch.pi / 180.0
     in_crossing_band = (joint_angle >= crossing_band_min) & (joint_angle <= crossing_band_max)
+
+    # 定义目标区域
+    target_center = -30.0 * torch.pi / 180.0  # 目标中心角度
+    target_min = -40.0 * torch.pi / 180.0     # 目标区间下限
+    target_max = -20.0 * torch.pi / 180.0     # 目标区间上限
     
     # 根据角度位置划分区域
     positive_region = joint_angle > bifurcation_angle
@@ -214,15 +216,16 @@ def compute_rewards(
     # 初始化奖励
     target_reward = torch.zeros_like(joint_angle)
     
-    # 1. 正角度区域：鼓励减小角度（靠近0度平面）
+    # 1. 正角度区域：鼓励减小角度去接近分叉平面
     target_reward[positive_region] = rew_scale_target_angle * (
         bifurcation_angle - joint_angle[positive_region]
     )
     
     # 2. 负角度区域：鼓励达到目标区间
+    # 区间宽度为20度，转换为弧度约为0.349弧度
     dist_to_center = torch.abs(joint_angle - target_center)
     target_reward[negative_region] = rew_scale_target_angle * (
-        1.0 - dist_to_center[negative_region] / (20.0)
+        1.0 - dist_to_center[negative_region] / (20.0 * torch.pi / 180.0)
     )
     
     # 3. 目标区域内：确保有最小奖励
@@ -232,7 +235,7 @@ def compute_rewards(
         torch.ones_like(target_reward[target_region]) * min_in_target_reward
     )
     
-    # 4. 穿越带奖励：鼓励快速穿越0度平面
+    # 4. 穿越带奖励：鼓励快速穿越分岔平面
     # 在穿越带内，速度越快（负速度）奖励越高
     crossing_speed_reward = torch.zeros_like(joint_angle)
     
@@ -257,3 +260,77 @@ def compute_rewards(
     total_reward = target_reward + crossing_speed_reward + crossed_reward + stability_reward - energy_penalty
     
     return total_reward
+
+
+# @torch.jit.script
+# def compute_rewards(
+#     rew_scale_target_angle: float,
+#     rew_scale_energy: float,
+#     rew_scale_crossing_speed: float,
+#     joint_angle: torch.Tensor,
+#     joint_vel: torch.Tensor,
+#     actions: torch.Tensor,
+# ) -> torch.Tensor:
+    
+#     # 定义关键角度
+#     bifurcation_angle = 0.0  # 0度平面
+#     target_center = -30.0  # 目标中心角度 -30度
+#     target_min = -40.0     # 目标区间下限
+#     target_max = -20.0     # 目标区间上限
+    
+#     # 定义穿越区域（0度平面附近的窄带）
+#     crossing_band_min = -5.0
+#     crossing_band_max = 5.0
+#     in_crossing_band = (joint_angle >= crossing_band_min) & (joint_angle <= crossing_band_max)
+    
+#     # 根据角度位置划分区域
+#     positive_region = joint_angle > bifurcation_angle
+#     negative_region = joint_angle <= bifurcation_angle
+#     target_region = (joint_angle >= target_min) & (joint_angle <= target_max)
+    
+#     # 初始化奖励
+#     target_reward = torch.zeros_like(joint_angle)
+    
+#     # 1. 正角度区域：鼓励减小角度（靠近0度平面）
+#     target_reward[positive_region] = rew_scale_target_angle * (
+#         bifurcation_angle - joint_angle[positive_region]
+#     )
+    
+#     # 2. 负角度区域：鼓励达到目标区间
+#     dist_to_center = torch.abs(joint_angle - target_center)
+#     target_reward[negative_region] = rew_scale_target_angle * (
+#         1.0 - dist_to_center[negative_region] / (20.0)
+#     )
+    
+#     # 3. 目标区域内：确保有最小奖励
+#     min_in_target_reward = rew_scale_target_angle * 0.8
+#     target_reward[target_region] = torch.max(
+#         target_reward[target_region], 
+#         torch.ones_like(target_reward[target_region]) * min_in_target_reward
+#     )
+    
+#     # 4. 穿越带奖励：鼓励快速穿越0度平面
+#     # 在穿越带内，速度越快（负速度）奖励越高
+#     crossing_speed_reward = torch.zeros_like(joint_angle)
+    
+#     # 计算穿越速度分量（负速度表示向下穿越）
+#     crossing_speed_component = torch.clamp(-joint_vel, min=0)
+    
+#     # 在穿越带内应用速度奖励
+#     crossing_speed_reward[in_crossing_band] = rew_scale_crossing_speed * crossing_speed_component[in_crossing_band]
+    
+#     # 5. 穿越后奖励：鼓励保持穿越状态
+#     # 如果已经穿越到负角度区域，给予额外奖励
+#     crossed_reward = torch.zeros_like(joint_angle)
+#     crossed_reward[negative_region] = rew_scale_crossing_speed * 0.5
+    
+#     # 能耗惩罚
+#     energy_penalty = rew_scale_energy * torch.sum(actions ** 2, dim=1)
+    
+#     # 稳定性奖励
+#     stability_reward = torch.zeros_like(joint_angle)
+    
+#     # 总奖励 = 位置奖励 + 穿越速度奖励 + 穿越后奖励 + 稳定性奖励 - 能耗惩罚
+#     total_reward = target_reward + crossing_speed_reward + crossed_reward + stability_reward - energy_penalty
+    
+#     return total_reward
